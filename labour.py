@@ -380,6 +380,12 @@ def labour_detail(labour_id):
                 flash("Error updating advance payment", "danger")
                 print("Advance payment error:", e)
 
+    return render_template("labour_detail.html", 
+        labour=labour, 
+        attendance_stats=attendance_stats,
+        selected_month=selected_date.strftime('%Y-%m'),
+        total_money_payable=total_money_payable)
+
 
 @labour_bp.route('/labour_m/delete', methods=['POST'])
 def delete_labour():
