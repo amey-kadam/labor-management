@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Management</title>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:400,500&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+   <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_m.css') }}">   
+
+</head>
+<body>
+  <nav class="sidebar">
+    <h3>GCBD</h3>
+    <ul class="nav">
+      <li><a href="/employee_m"><i class="fas fa-users"></i> Employee Management</a></li>
+      <li><a href="/site_m"><i class="fas fa-building"></i> Site Management</a></li>
+      <li><a href="/admin_m" class="active"><i class="fas fa-user-shield"></i> Admin Management</a></li>
+      <li><a href="/labour_m" ><i class="fas fa-hard-hat"></i> Labour Management</a></li>
+      <li><a href="/admin"><i class="fas fa-dashboard"></i> Dashboard</a></li>
+      <li><a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+    </ul>
+  </nav>
+
+  <main class="content">
+    <h1>Admin Management</h1>
+    
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ 'danger' if category == 'error' else category }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- Create New Admin Section -->
+    <div class="section">
+      <div class="section-header">
+        <h2>Create New Admin User</h2>
+      </div>
+      <div class="section-content">
+        <form method="POST" action="/admin_m">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="email">Email Address *</label>
+              <input type="email" id="email" name="email" required 
+                     placeholder="Enter admin email address">
+            </div>
+            <div class="form-group">
+              <label for="password">Password *</label>
+              <input type="password" id="password" name="password" required 
+                     placeholder="Enter secure password" minlength="6">
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>Permissions</label>
+            <div class="permissions-grid">
+              <div class="permission-item">
+                <input type="checkbox" id="site_m" name="perms" value="site_m">
+                <label for="site_m">Site Management</label>
+              </div>
+              <div class="permission-item">
+                <input type="checkbox" id="employee_m" name="perms" value="employee_m">
+                <label for="employee_m">Employee Management</label>
+              </div>
+              <div class="permission-item">
+                <input type="checkbox" id="labour_m" name="perms" value="labour_m">
+                <label for="labour_m">Labour Management</label>
+              </div>
+              <div class="permission-item">
+                <input type="checkbox" id="admin_m" name="perms" value="admin_m">
+                <label for="admin_m">Admin Management</label>
+              </div>
+            </div>
+          </div>
+          
+          <button type="submit" class="btn btn-success">Create Admin User</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Existing Admins List -->
+    <div class="section">
+      <div class="section-header">
+        <h2>Existing Admin Users</h2>
+      </div>
+      <div class="admin-table">
+        {% if admins %}
+        <table>
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Email</th>
+              <th>Type</th>
+              <th>Permissions</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for admin in admins %}
+            <tr>
+              <td>{{ admin.username }}</td>
+              <td>{{ admin.email or 'N/A' }}</td>
+              <td>
+                {% if admin.is_super_admin %}
+                  <span class="permission-tag super-admin-tag">Super Admin</span>
+                {% else %}
+                  <span class="permission-tag">Regular Admin</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if admin.is_super_admin %}
+                  <span class="permission-tag super-admin-tag">All Permissions</span>
+                {% else %}
+                  {% if admin.can_access_site_m %}
+                    <span class="permission-tag">Site Management</span>
+                  {% endif %}
+                  {% if admin.can_access_employee_m %}
+                    <span class="permission-tag">Employee Management</span>
+                  {% endif %}
+                  {% if admin.can_access_labour_m %}
+                    <span class="permission-tag">Labour Management</span>
+                  {% endif %}
+                  {% if admin.can_access_admin_m %}
+                    <span class="permission-tag">Admin Management</span>
+                  {% endif %}
+                  {% if not admin.can_access_site_m and not admin.can_access_employee_m and not admin.can_access_labour_m and not admin.can_access_admin_m %}
+                    <span class="permission-tag" style="background: #fff3cd; color: #856404;">No Permissions</span>
+                  {% endif %}
+                {% endif %}
+              </td>
+              <td class="actions-cell">
+                {% if not admin.is_super_admin %}
+                  <a href="/admin_m/edit/{{ admin.id }}" class="btn btn-warning" title="Edit Admin">
+                    Edit
+                  </a>
+                  <button type="button" class="btn btn-danger" onclick="confirmDelete({{ admin.id }}, '{{ admin.email or admin.username }}')" title="Delete Admin">
+                    Delete
+                  </button>
+                {% else %}
+                  <span style="color: #6c757d; font-style: italic;">Protected</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+          <p>No admin users found.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </main>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="deleteModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Confirm Delete</h3>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to delete admin user "<span id="adminToDelete"></span>"?</p>
+        <p style="color: #721c24; font-weight: bold; margin-top: 10px;">This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <form id="deleteForm" method="POST" style="display: inline;">
+          <button type="submit" class="btn btn-danger">Delete</button>
+          <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function confirmDelete(adminId, adminName) {
+      document.getElementById('adminToDelete').textContent = adminName;
+      document.getElementById('deleteForm').action = '/admin_m/delete/' + adminId;
+      document.getElementById('deleteModal').style.display = 'block';
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('deleteModal').style.display = 'none';
+    }
+
+    // Close modal when clicking outside of it
+    window.onclick = function(event) {
+      const modal = document.getElementById('deleteModal');
+      if (event.target == modal) {
+        modal.style.display = 'none';
+      }
+    }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape') {
+        closeDeleteModal();
+      }
+    });
+  </script>
+
+</body>
+</html>

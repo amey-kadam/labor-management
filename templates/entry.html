@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Labour Entry</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/entry.css') }}">   
+    <script>
+        const activityRates = {
+            "Corner Bead": { 
+                unit: "Nos", 
+                unit_rates: [2.75, 5.0], 
+                hr_rates: [3.69, 10.0] 
+            },
+            "Plaster": { 
+                unit: "sq.m", 
+                unit_rates: [2.75, 4.0], 
+                hr_rates: [3.69, 10.0] 
+            },
+            "Spot Level": { 
+                unit: "sq.m", 
+                unit_rates: [0.25, 0.5], 
+                hr_rates: [3.69, 10.0] 
+            },
+            "Conduit Filling": { 
+                unit: "hr", 
+                unit_rates: [], 
+                hr_rates: [3.08, 7.0] 
+            },
+            "Keycoat": { 
+                unit: "sq.m", 
+                unit_rates: [0.7], 
+                hr_rates: [3.08, 7.0] 
+            },
+            "Mesh Fixing": { 
+                unit: "Rn.M", 
+                unit_rates: [0.28], 
+                hr_rates: [3.08, 7.0] 
+            },
+            "Mesh Filling": { 
+                unit: "hr", 
+                unit_rates: [], 
+                hr_rates: [3.08, 7.0] 
+            },
+            "Fiber Mesh Fixing": { 
+                unit: "Rn.M", 
+                unit_rates: [0.56], 
+                hr_rates: [3.08, 7.0] 
+            }
+        };
+
+        function updateRateUnit() {
+            const activity = document.getElementById('activity').value;
+            const unitInput = document.getElementById('unit');
+            const rateTypeSelect = document.getElementById('rate_type');
+            const rateSelect = document.getElementById('rate');
+            
+            if (activityRates[activity]) {
+                const rates = activityRates[activity];
+                unitInput.value = rates.unit;
+
+                // Reset Rate Type and Rate options
+                rateTypeSelect.value = '';
+                rateSelect.innerHTML = '<option value="">--Select Rate--</option>';
+                
+                // Clear amount and other fields
+                document.getElementById('amount').value = '';
+                document.getElementById('qty').value = '';
+                document.getElementById('total_hours').value = '';
+            }
+        }
+
+        function updateRateOptions() {
+            const activity = document.getElementById('activity').value;
+            const rateType = document.getElementById('rate_type').value;
+            const rateSelect = document.getElementById('rate');
+
+            rateSelect.innerHTML = '<option value="">--Select Rate--</option>';
+
+            if (activityRates[activity]) {
+                let ratesList = [];
+                if (rateType === 'Unit') {
+                    ratesList = activityRates[activity].unit_rates;
+                } else if (rateType === 'Hour') {
+                    ratesList = activityRates[activity].hr_rates;
+                }
+
+                ratesList.forEach(rate => {
+                    const option = document.createElement('option');
+                    option.value = rate;
+                    option.textContent = rate;
+                    rateSelect.appendChild(option);
+                });
+            }
+            
+            // Clear amount when rate type changes
+            document.getElementById('amount').value = '';
+        }
+
+        function calculateAmount() {
+            const rate = parseFloat(document.getElementById('rate').value) || 0;
+            const qty = parseFloat(document.getElementById('qty').value) || 0;
+            const totalHours = parseFloat(document.getElementById('total_hours').value) || 0;
+            const rateType = document.getElementById('rate_type').value;
+
+            let amount = 0;
+            
+            if (rate > 0) {
+                if (rateType === 'Hour') {
+                    // For hourly rates: Rate × Total Hours
+                    amount = rate * totalHours;
+                } else if (rateType === 'Unit') {
+                    // For unit rates: Rate × Quantity
+                    amount = rate * qty;
+                }
+            }
+
+            document.getElementById('amount').value = amount.toFixed(2);
+        }
+
+        function toggleFields() {
+            const rateType = document.getElementById('rate_type').value;
+            const qtyField = document.getElementById('qty');
+            const hoursField = document.getElementById('total_hours');
+            
+            if (rateType === 'Hour') {
+                // Enable hours, disable quantity
+                hoursField.required = true;
+                qtyField.required = false;
+                qtyField.value = '';
+            } else if (rateType === 'Unit') {
+                // Enable quantity, disable hours
+                qtyField.required = true;
+                hoursField.required = false;
+                hoursField.value = '';
+            } else {
+                // Both optional if no rate type selected
+                qtyField.required = false;
+                hoursField.required = false;
+            }
+            
+            calculateAmount();
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Labour Entry System</h2>
+            <p>Welcome, {{ employee.username }} | Site: {{ employee.site.name }}</p>
+        </div>
+
+        <div class="form-container">
+            <form method="POST">
+                <div class="form-grid">
+                    <!-- Left Section: Basic Information -->
+                    <div class="form-section">
+                        <h3 class="section-title">Basic Information</h3>
+                        
+                        <div class="form-group">
+                            <label for="labour_id">Labour ID</label>
+                            <input list="labourList" name="labour_id" id="labour_id" required placeholder="Select or type Labour ID">
+                            <datalist id="labourList">
+                                {% for labour in labours %}
+                                    <option value="{{ labour.labour_id }}">{{ labour.labour_id }} - {{ labour.name }}</option>
+                                {% endfor %}
+                            </datalist>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="activity">Activity Type</label>
+                            <select name="activity" id="activity" onchange="updateRateUnit()" required>
+                                <option value="">--Select Activity--</option>
+                                {% for act in activities %}
+                                <option value="{{ act }}">{{ act }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="status">Attendance Status</label>
+                            <select name="status" id="status" required>
+                                <option value="Present">Present</option>
+                                <option value="Absent">Absent</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="unit">Unit of Measurement</label>
+                            <input type="text" name="unit" id="unit" readonly placeholder="Auto-filled">
+                        </div>
+                    </div>
+
+                    <!-- Right Section: Rate & Calculation -->
+                    <div class="form-section">
+                        <h3 class="section-title">Rate & Calculation</h3>
+                        
+                        <div class="form-group">
+                            <label for="rate_type">Rate Type</label>
+                            <select name="rate_type" id="rate_type" onchange="updateRateOptions(); toggleFields()" required>
+                                <option value="">--Select Rate Type--</option>
+                                <option value="Unit">By Unit</option>
+                                <option value="Hour">By Hour</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="rate">Rate (₹)</label>
+                            <select name="rate" id="rate" onchange="calculateAmount()" required>
+                                <option value="">--Select Rate--</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="total_hours">Total Hours</label>
+                            <input type="number" step="0.1" name="total_hours" id="total_hours" oninput="calculateAmount()" placeholder="Required for hourly rates">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="qty">Quantity</label>
+                            <input type="number" step="0.1" name="qty" id="qty" oninput="calculateAmount()" placeholder="Required for unit rates">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="amount">Final Amount (₹)</label>
+                            <input type="number" step="0.01" name="amount" id="amount" class="amount-display" readonly placeholder="0.00">
+                        </div>
+                    </div>
+                </div>
+
+                <input type="submit" value="Submit Entry" class="submit-btn">
+            </form>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="messages">
+                    <ul>
+                    {% for category, message in messages %}
+                        <li class="{{ category }}">{{ message }}</li>
+                    {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+            {% endwith %}
+        </div>
+
+        <!-- Labour Entries List -->
+        <div class="entries-container">
+            <h3>Today's Labour Entries</h3>
+            {% if labour_entries %}
+                <table class="entries-table">
+                    <thead>
+                        <tr>
+                            <th>Labour ID</th>
+                            <th>Labour Name</th>
+                            <th>Activity</th>
+                            <th>Status</th>
+                            <th>Rate Type</th>
+                            <th>Rate</th>
+                            <th>Hours</th>
+                            <th>Quantity</th>
+                            <th>Amount (₹)</th>
+                            <th>Entry Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for entry in labour_entries %}
+                    <tr>
+                        <td>{{ entry.labour.labour_id }}</td>
+                        <td>{{ entry.labour.name }}</td>
+                        <td>{{ entry.activity }}</td>
+                        <td>{{ entry.status }}</td>
+                        <td>{{ entry.rate_type }}</td>
+                        <td>{{ entry.rate }}</td>
+                        <td>{{ entry.total_hours if entry.total_hours else '-' }}</td>
+                        <td>{{ entry.qty if entry.qty else '-' }}</td>
+                        <td class="amount-cell">{{ "%.2f"|format(entry.amount) }}</td>
+                        <td>{{ entry.timestamp.strftime('%H:%M:%S') }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <div class="no-entries">
+                    <p>No labour entries found for today.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Report Analytics - GCBD</title>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,600&display=swap" rel="stylesheet">
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/report.css') }}">   
+</head>
+<body>
+  <nav class="sidebar">
+    <h3>GCBD</h3>
+    <ul class="nav">
+      {% if user.has_permission('employee_m') %}
+        <li><a href="/employee_m"><i class="fas fa-users"></i> Employee Management</a></li>
+      {% else %}
+        <li><a href="#" class="disabled"><i class="fas fa-users"></i> Employee Management</a></li>
+      {% endif %}
+      
+      {% if user.has_permission('site_m') %}
+        <li><a href="/site_m"><i class="fas fa-building"></i> Site Management</a></li>
+      {% else %}
+        <li><a href="#" class="disabled"><i class="fas fa-building"></i> Site Management</a></li>
+      {% endif %}
+      
+      {% if user.has_permission('admin_m') %}
+        <li><a href="/admin_m"><i class="fas fa-user-shield"></i> Admin Management</a></li>
+      {% else %}
+        <li><a href="#" class="disabled"><i class="fas fa-user-shield"></i> Admin Management</a></li>
+      {% endif %}
+      
+      {% if user.has_permission('labour_m') %}
+        <li><a href="/labour_m"><i class="fas fa-hard-hat"></i> Labour Management</a></li>
+      {% else %}
+        <li><a href="#" class="disabled"><i class="fas fa-hard-hat"></i> Labour Management</a></li>
+      {% endif %}
+      
+      <li><a href="/report" class="active"><i class="fas fa-chart-bar"></i> Report Analytics</a></li>
+    </ul>
+    
+    <div class="logout-section">
+      <a href="/logout" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+  </nav>
+  
+  <section class="main">
+    <div class="report-container">
+      <!-- Back Button -->
+      <a href="/admin" class="back-btn">
+        <i class="fas fa-arrow-left"></i> Back to Dashboard
+      </a>
+      
+      <!-- Page Header -->
+      <div class="page-header">
+        <h1>Report Analytics</h1>
+        <p>Comprehensive overview of labour management metrics and performance data</p>
+        {% if period_info %}
+        <div class="period-info">
+          <small><i class="fas fa-calendar"></i> Reporting Period: {{ period_info.from }} to {{ period_info.to }} ({{ period_info.days }} days)</small>
+        </div>
+        {% endif %}
+      </div>
+      
+      <!-- Stats Overview -->
+      <div class="report-stats">
+        <div class="stat-card">
+          <span class="stat-number">{{ "{:,.1f}".format(stats.total_hours) if stats.total_hours else '0.0' }}</span>
+          <span class="stat-label">Total Hours Worked</span>
+          <small class="stat-detail">{{ stats.present_count or 0 }} present, {{ stats.absent_count or 0 }} absent</small>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number">AED {{ "{:,.0f}".format(stats.total_amount) if stats.total_amount else '0' }}</span>
+          <span class="stat-label">Total Amount Earned</span>
+          <small class="stat-detail">{{ "{:.1f}".format(stats.total_hours / stats.active_labourers if stats.active_labourers > 0 else 0) }} avg hours/worker</small>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number">{{ stats.active_labourers or 0 }}</span>
+          <span class="stat-label">Active Labourers</span>
+          <small class="stat-detail">{{ "{:.1f}".format(stats.attendance_rate) if stats.attendance_rate else '0.0' }}% attendance rate</small>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number">{{ stats.active_sites or 0 }}</span>
+          <span class="stat-label">Active Sites</span>
+          <small class="stat-detail">Currently operational</small>
+        </div>
+      </div>
+      
+      <!-- Filter Section -->
+      <div class="filter-section">
+        <h3>Filter Reports</h3>
+        <form class="filter-row" method="GET" action="/report">
+          <div class="filter-group">
+            <label for="date_from">From Date</label>
+            <input type="date" id="date_from" name="date_from" value="{{ date_from }}">
+          </div>
+          <div class="filter-group">
+            <label for="date_to">To Date</label>
+            <input type="date" id="date_to" name="date_to" value="{{ date_to }}">
+          </div>
+          <div class="filter-group">
+            <label for="site_id">Site</label>
+            <select id="site_id" name="site_id">
+              <option value="all" {{ 'selected' if current_site_filter == 'all' else '' }}>All Sites</option>
+              {% for site in sites %}
+                <option value="{{ site.id }}" {{ 'selected' if current_site_filter == site.id|string else '' }}>
+                  {{ site.name }} - {{ site.location }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="filter-group">
+            <button type="submit" class="filter-btn">
+              <i class="fas fa-filter"></i> Apply Filters
+            </button>
+          </div>
+        </form>
+      </div>
+      
+      <!-- Report Table -->
+      <div class="report-table-container">
+        <div class="table-header">
+          <h2>Performance Metrics Comparison</h2>
+          <p>Period-over-period analysis of key performance indicators</p>
+        </div>
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Current Period</th>
+              <th>Previous Period</th>
+              <th>Change</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in report_data %}
+              <tr>
+                <td><strong>{{ item.metric }}</strong></td>
+                <td class="metric-value">{{ item.current }}</td>
+                <td class="metric-value">{{ item.previous }}</td>
+                <td class="metric-value {{ 'positive' if item.change > 0 else 'negative' if item.change < 0 else '' }}">
+                  {% if item.change > 0 %}+{% endif %}{{ item.change }}%
+                </td>
+                <td>
+                  {% if item.status == 'good' %}
+                    <span style="color: var(--success);">✓ Good</span>
+                  {% elif item.status == 'warning' %}
+                    <span style="color: #f39c12;">⚠ Warning</span>
+                  {% else %}
+                    <span style="color: var(--danger);">✗ Attention</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Site-wise Performance -->
+      {% if site_wise_stats %}
+      <div class="report-table-container">
+        <div class="table-header">
+          <h2>Site-wise Performance</h2>
+          <p>Breakdown of performance metrics by site location</p>
+        </div>
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Site</th>
+              <th>Location</th>
+              <th>Total Hours</th>
+              <th>Total Amount</th>
+              <th>Active Labourers</th>
+              <th>Attendance Rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for site in site_wise_stats %}
+              <tr>
+                <td><strong>{{ site.site_name }}</strong></td>
+                <td>{{ site.site_location }}</td>
+                <td class="metric-value">{{ "{:,.1f}".format(site.total_hours) }}</td>
+                <td class="metric-value">AED {{ "{:,.0f}".format(site.total_amount) }}</td>
+                <td class="metric-value">{{ site.unique_labourers }}</td>
+                <td class="metric-value">
+                  <span class="{{ 'positive' if site.attendance_rate >= 80 else 'negative' if site.attendance_rate < 60 else '' }}">
+                    {{ "{:.1f}".format(site.attendance_rate) }}%
+                  </span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+      <!-- Top Performers -->
+      {% if labour_performance %}
+      <div class="report-table-container">
+        <div class="table-header">
+          <h2>Top Performing Labourers</h2>
+          <p>Highest performing workers based on hours worked and attendance</p>
+        </div>
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Labour ID</th>
+              <th>Name</th>
+              <th>Total Hours</th>
+              <th>Total Amount</th>
+              <th>Attendance Rate</th>
+              <th>Total Entries</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for labour in labour_performance %}
+              <tr>
+                <td><strong>{{ labour.labour_code }}</strong></td>
+                <td>{{ labour.name }}</td>
+                <td class="metric-value">{{ "{:,.1f}".format(labour.total_hours) }}</td>
+                <td class="metric-value">AED {{ "{:,.0f}".format(labour.total_amount) }}</td>
+                <td class="metric-value">
+                  <span class="{{ 'positive' if labour.attendance_rate >= 90 else 'negative' if labour.attendance_rate < 70 else '' }}">
+                    {{ "{:.1f}".format(labour.attendance_rate) }}%
+                  </span>
+                </td>
+                <td class="metric-value">{{ labour.total_entries }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+      <!-- Export Section -->
+      <div class="export-section">
+        <a href="/report/export/pdf?{{ request.query_string.decode() }}" class="export-btn primary">
+          <i class="fas fa-file-pdf"></i> Export PDF
+        </a>
+        <a href="/report/export/excel?{{ request.query_string.decode() }}" class="export-btn">
+          <i class="fas fa-file-excel"></i> Export Excel
+        </a>
+        <a href="/report/export/csv?{{ request.query_string.decode() }}" class="export-btn">
+          <i class="fas fa-file-csv"></i> Export CSV
+        </a>
+        <button class="export-btn" onclick="window.print()">
+          <i class="fas fa-print"></i> Print Report
+        </button>
+      </div>
+
+      <!-- Summary Cards -->
+      <div class="summary-section">
+        <div class="summary-card">
+          <h3>Quick Insights</h3>
+          <ul>
+            <li><i class="fas fa-clock"></i> Average daily hours: {{ "{:.1f}".format(stats.total_hours / period_info.days if period_info and period_info.days > 0 else 0) }}</li>
+            <li><i class="fas fa-money-bill-wave"></i> Average hourly rate: AED {{ "{:.0f}".format(stats.total_amount / stats.total_hours if stats.total_hours > 0 else 0) }}</li>
+            <li><i class="fas fa-users"></i> Worker productivity: {{ "{:.1f}".format(stats.total_hours / stats.active_labourers if stats.active_labourers > 0 else 0) }} hours/worker</li>
+            <li><i class="fas fa-chart-line"></i> Site utilization: {{ "{:.1f}".format(stats.active_sites / sites|length * 100 if sites|length > 0 else 0) }}%</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // Enhanced JavaScript for dynamic functionality
+    document.addEventListener('DOMContentLoaded', function() {
+      // Add hover effects to table rows
+      const tableRows = document.querySelectorAll('.report-table tbody tr');
+      tableRows.forEach(row => {
+        row.addEventListener('mouseenter', function() {
+          this.style.backgroundColor = 'var(--surface-hover)';
+        });
+        row.addEventListener('mouseleave', function() {
+          this.style.backgroundColor = '';
+        });
+      });
+
+      // Auto-fill "To Date" when "From Date" is selected
+      const fromDate = document.getElementById('date_from');
+      const toDate = document.getElementById('date_to');
+      
+      if (fromDate && toDate) {
+        fromDate.addEventListener('change', function() {
+          if (this.value && !toDate.value) {
+            const date = new Date(this.value);
+            date.setMonth(date.getMonth() + 1);
+            toDate.value = date.toISOString().split('T')[0];
+          }
+        });
+      }
+
+      // Add loading states for form submission
+      const filterForm = document.querySelector('.filter-row');
+      if (filterForm) {
+        filterForm.addEventListener('submit', function() {
+          const submitBtn = this.querySelector('.filter-btn');
+          const originalText = submitBtn.innerHTML;
+          submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+          submitBtn.disabled = true;
+          
+          // Re-enable after 5 seconds in case of issues
+          setTimeout(() => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+          }, 5000);
+        });
+      }
+
+      // Add tooltips for metric values
+      const metricValues = document.querySelectorAll('.metric-value');
+      metricValues.forEach(value => {
+        value.title = 'Click for detailed breakdown';
+        value.style.cursor = 'help';
+      });
+
+      // Color code attendance rates
+      const attendanceRates = document.querySelectorAll('.metric-value span');
+      attendanceRates.forEach(span => {
+        const text = span.textContent;
+        if (text.includes('%')) {
+          const rate = parseFloat(text.replace('%', ''));
+          if (rate >= 90) {
+            span.style.color = '#27ae60';
+          } else if (rate >= 70) {
+            span.style.color = '#f39c12';
+          } else {
+            span.style.color = '#e74c3c';
+          }
+        }
+      });
+
+      // Add real-time data refresh capability
+      let refreshInterval;
+      const enableAutoRefresh = document.createElement('button');
+      enableAutoRefresh.innerHTML = '<i class="fas fa-sync-alt"></i> Auto Refresh';
+      enableAutoRefresh.className = 'export-btn';
+      enableAutoRefresh.onclick = function() {
+        if (refreshInterval) {
+          clearInterval(refreshInterval);
+          refreshInterval = null;
+          this.innerHTML = '<i class="fas fa-sync-alt"></i> Auto Refresh';
+          this.style.backgroundColor = '';
+        } else {
+          refreshInterval = setInterval(() => {
+            location.reload();
+          }, 30000); // Refresh every 30 seconds
+          this.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> Auto Refresh (ON)';
+          this.style.backgroundColor = '#27ae60';
+        }
+      };
+      
+      const exportSection = document.querySelector('.export-section');
+      if (exportSection) {
+        exportSection.appendChild(enableAutoRefresh);
+      }
+
+      // Add keyboard shortcuts
+      document.addEventListener('keydown', function(e) {
+        // Ctrl+R or F5 for refresh
+        if ((e.ctrlKey && e.key === 'r') || e.key === 'F5') {
+          e.preventDefault();
+          location.reload();
+        }
+        
+        // Ctrl+P for print
+        if (e.ctrlKey && e.key === 'p') {
+          e.preventDefault();
+          window.print();
+        }
+        
+        // Ctrl+E for Excel export
+        if (e.ctrlKey && e.key === 'e') {
+          e.preventDefault();
+          const excelLink = document.querySelector('a[href*="export/excel"]');
+          if (excelLink) excelLink.click();
+        }
+      });
+
+      // Highlight current filters
+      const currentFilters = [];
+      if (document.getElementById('date_from').value) {
+        currentFilters.push('Date Range');
+      }
+      if (document.getElementById('site_id').value !== 'all') {
+        currentFilters.push('Site Filter');
+      }
+      
+      if (currentFilters.length > 0) {
+        const filterSection = document.querySelector('.filter-section h3');
+        filterSection.innerHTML += ` <small style="color: #27ae60;">(${currentFilters.join(', ')} Applied)</small>`;
+      }
+    });
+  </script>
+
+  <style>
+    .period-info {
+      margin-top: 10px;
+      padding: 8px 12px;
+      background: rgba(52, 73, 94, 0.1);
+      border-radius: 4px;
+      display: inline-block;
+    }
+    
+    .stat-detail {
+      display: block;
+      margin-top: 5px;
+      color: #7f8c8d;
+      font-size: 0.85em;
+    }
+    
+    .positive {
+      color: #27ae60 !important;
+    }
+    
+    .negative {
+      color: #e74c3c !important;
+    }
+    
+    .summary-section {
+      margin-top: 30px;
+    }
+    
+    .summary-card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .summary-card h3 {
+      margin-bottom: 15px;
+      color: #2c3e50;
+    }
+    
+    .summary-card ul {
+      list-style: none;
+      padding: 0;
+    }
+    
+    .summary-card li {
+      padding: 8px 0;
+      border-bottom: 1px solid #ecf0f1;
+    }
+    
+    .summary-card li:last-child {
+      border-bottom: none;
+    }
+    
+    .summary-card i {
+      margin-right: 10px;
+      color: #3498db;
+      width: 20px;
+    }
+    
+    .export-section {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .export-btn {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 5px;
+      background: #34495e;
+      color: white;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .export-btn:hover {
+      background: #2c3e50;
+      transform: translateY(-2px);
+    }
+    
+    .export-btn.primary {
+      background: #e74c3c;
+    }
+    
+    .export-btn.primary:hover {
+      background: #c0392b;
+    }
+    
+    @media (max-width: 768px) {
+      .export-section {
+        flex-direction: column;
+      }
+      
+      .export-btn {
+        justify-content: center;
+      }
+      
+      .report-stats {
+        grid-template-columns: 1fr 1fr;
+      }
+      
+      .filter-row {
+        flex-direction: column;
+        gap: 15px;
+      }
+    }
+  </style>
+</body>
+</html>

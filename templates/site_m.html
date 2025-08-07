@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Site Management</title>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:400,500&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+   <link rel="stylesheet" href="{{ url_for('static', filename='css/site_m.css') }}">   
+
+</head>
+<body>
+  <nav class="sidebar">
+    <h3>GCBD</h3>
+    <ul class="nav">
+      <li><a href="/employee_m"><i class="fas fa-users"></i> Employee Management</a></li>
+      <li><a href="/site_m" class="active"><i class="fas fa-building"></i> Site Management</a></li>
+      <li><a href="/admin_m"><i class="fas fa-user-shield"></i> Admin Management</a></li>
+      <li><a href="/labour_m" ><i class="fas fa-hard-hat"></i> Labour Management</a></li>
+      <li><a href="/admin"><i class="fas fa-dashboard"></i> Dashboard</a></li>
+      <li><a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+    </ul>
+  </nav>
+
+  <main class="main">
+    <h1>Site Management</h1>
+    
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ 'danger' if category == 'error' else category }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="sites-grid">
+      <!-- Add Site Card -->
+      <div class="add-site-card" onclick="openAddModal()">
+        <div class="add-icon">+</div>
+        <div class="add-text">Add New Site</div>
+      </div>
+
+      <!-- Site Cards from Backend -->
+      {% if sites %}
+        {% for site in sites %}
+        <div class="site-card">
+          <div class="site-name">{{ site.name }}</div>
+          <div class="site-location">{{ site.location }}</div>
+          <div class="site-actions">
+            <button class="btn btn-edit" onclick="editSite({{ site.id }}, '{{ site.name }}', '{{ site.location }}')">Edit</button>
+            <button class="btn btn-delete" onclick="deleteSite({{ site.id }}, '{{ site.name }}')">Delete</button>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state">
+          No sites added yet. Click the + button to add your first site.
+        </div>
+      {% endif %}
+    </div>
+  </main>
+
+  <!-- Add Site Modal -->
+  <div id="siteModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">Add New Site</h3>
+      </div>
+      <form id="siteForm" method="POST" action="/site_m">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="siteName">Site Name *</label>
+            <input type="text" id="siteName" name="site_name" required 
+                   placeholder="Enter site name">
+          </div>
+          <div class="form-group">
+            <label for="siteLocation">Location *</label>
+            <input type="text" id="siteLocation" name="location" required 
+                   placeholder="Enter site location">
+          </div>
+          <input type="hidden" id="siteId" name="site_id" value="">
+          <input type="hidden" id="actionType" name="action" value="add">
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary" id="submitBtn">Add Site</button>
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="deleteModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Confirm Delete</h3>
+      </div>
+      <form method="POST" action="/site_m/delete">
+        <div class="modal-body">
+          <p>Are you sure you want to delete the site "<span id="siteToDelete"></span>"?</p>
+          <p style="color: #721c24; font-weight: 500; margin-top: 10px;">This action cannot be undone.</p>
+          <input type="hidden" id="deleteSiteId" name="site_id" value="">
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-delete">Delete</button>
+          <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function openAddModal() {
+      document.getElementById('modalTitle').textContent = 'Add New Site';
+      document.getElementById('submitBtn').textContent = 'Add Site';
+      document.getElementById('siteName').value = '';
+      document.getElementById('siteLocation').value = '';
+      document.getElementById('siteId').value = '';
+      document.getElementById('actionType').value = 'add';
+      document.getElementById('siteForm').action = '/site_m';
+      document.getElementById('siteModal').style.display = 'block';
+    }
+
+    function editSite(id, name, location) {
+      document.getElementById('modalTitle').textContent = 'Edit Site';
+      document.getElementById('submitBtn').textContent = 'Update Site';
+      document.getElementById('siteName').value = name;
+      document.getElementById('siteLocation').value = location;
+      document.getElementById('siteId').value = id;
+      document.getElementById('actionType').value = 'edit';
+      document.getElementById('siteForm').action = '/site_m';
+      document.getElementById('siteModal').style.display = 'block';
+    }
+
+    function deleteSite(id, name) {
+      document.getElementById('siteToDelete').textContent = name;
+      document.getElementById('deleteSiteId').value = id;
+      document.getElementById('deleteModal').style.display = 'block';
+    }
+
+    function closeModal() {
+      document.getElementById('siteModal').style.display = 'none';
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('deleteModal').style.display = 'none';
+    }
+
+    // Close modals when clicking outside
+    window.onclick = function(event) {
+      const siteModal = document.getElementById('siteModal');
+      const deleteModal = document.getElementById('deleteModal');
+      
+      if (event.target === siteModal) {
+        closeModal();
+      }
+      if (event.target === deleteModal) {
+        closeDeleteModal();
+      }
+    }
+
+    // Close modals on Escape key
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape') {
+        closeModal();
+        closeDeleteModal();
+      }
+    });
+  </script>
+</body>
+</html>

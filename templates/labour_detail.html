@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Labour Details</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/labour_m.css') }}">
+  <style>
+    .page-content {
+      padding: 1rem;
+    }
+
+    .month-selector {
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: #f8f9fa;
+      padding: 1rem;
+      border-radius: 8px;
+    }
+    
+    .month-selector label {
+      font-weight: bold;
+      color: #333;
+    }
+    
+    .month-selector input[type="month"] {
+      padding: 0.5rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #fff;
+      font-size: 1rem;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .info-card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 1rem;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      border-top: 4px solid;
+      min-height: 120px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .info-card.present {
+      border-top-color: #28a745;
+    }
+
+    .info-card.absent {
+      border-top-color: #dc3545;
+    }
+
+    .info-card.visa-cost {
+      border-top-color: #007bff;
+    }
+
+    .info-card.visa-paid {
+      border-top-color: #28a745;
+    }
+
+    .info-card.visa-pending {
+      border-top-color: #ffc107;
+    }
+
+    .info-card.total-money-payable {
+      border-top-color: #17a2b8;
+    }
+
+    .info-card.work-entries {
+      border-top-color: #6f42c1;
+    }
+
+    .info-card.work-amount {
+      border-top-color: #20c997;
+    }
+
+    .info-card.penalty {
+      border-top-color: #dc3545;
+    }
+
+    .info-card.insurance {
+      border-top-color: #fd7e14;
+    }
+
+    .info-card.advance-payment {
+      border-top-color: #e83e8c;
+    }
+
+    .info-card .icon {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .info-card.present .icon {
+      color: #28a745;
+    }
+
+    .info-card.absent .icon {
+      color: #dc3545;
+    }
+
+    .info-card.visa-cost .icon {
+      color: #007bff;
+    }
+
+    .info-card.visa-paid .icon {
+      color: #28a745;
+    }
+
+    .info-card.visa-pending .icon {
+      color: #ffc107;
+    }
+
+    .info-card.total-money-payable .icon {
+      color: #17a2b8;
+    }
+
+    .info-card.work-entries .icon {
+      color: #6f42c1;
+    }
+
+    .info-card.work-amount .icon {
+      color: #20c997;
+    }
+
+    .info-card.penalty .icon {
+      color: #dc3545;
+    }
+
+    .info-card.insurance .icon {
+      color: #fd7e14;
+    }
+
+    .info-card.advance-payment .icon {
+      color: #e83e8c;
+    }
+
+    .info-card .count {
+      font-size: 1.3rem;
+      font-weight: bold;
+      margin-bottom: 0.3rem;
+    }
+
+    .info-card.present .count {
+      color: #28a745;
+    }
+
+    .info-card.absent .count {
+      color: #dc3545;
+    }
+
+    .info-card.visa-cost .count {
+      color: #007bff;
+    }
+
+    .info-card.visa-paid .count {
+      color: #28a745;
+    }
+
+    .info-card.visa-pending .count {
+      color: #ffc107;
+    }
+
+    .info-card.total-money-payable .count {
+      color: #17a2b8;
+    }
+
+    .info-card.work-entries .count {
+      color: #6f42c1;
+    }
+
+    .info-card.work-amount .count {
+      color: #20c997;
+    }
+
+    .info-card.penalty .count {
+      color: #dc3545;
+    }
+
+    .info-card.insurance .count {
+      color: #fd7e14;
+    }
+
+    .info-card.advance-payment .count {
+      color: #e83e8c;
+    }
+
+    .info-card .label {
+      font-size: 0.9rem;
+      color: #666;
+      margin-bottom: 0.3rem;
+      font-weight: 500;
+    }
+
+    .info-card .percentage {
+      font-size: 0.8rem;
+      color: #888;
+    }
+
+    .form-container {
+      background: #fff;
+      border-radius: 8px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      margin-bottom: 2rem;
+    }
+
+    .form-container h3 {
+      margin-bottom: 1rem;
+      color: #333;
+    }
+
+    .form-container form {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .form-container label {
+      font-weight: bold;
+      color: #333;
+    }
+
+    .form-container input[type="number"] {
+      padding: 0.5rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      min-width: 150px;
+    }
+
+    .btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .btn-primary {
+      background: #007bff;
+      color: white;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+
+    .btn-success {
+      background: #28a745;
+      color: white;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .additional-info {
+      text-align: center;
+      margin-top: 1rem;
+      color: #666;
+      font-size: 0.8rem;
+      background: #f8f9fa;
+      padding: 0.8rem;
+      border-radius: 6px;
+    }
+
+    .worker-header {
+      background: #fff;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .worker-header h2 {
+      margin: 0;
+      color: #333;
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+      .cards-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .form-container form {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+
+    @media (max-width: 1024px) and (min-width: 769px) {
+      .cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    /* New info box for explanation */
+    .explanation-box {
+      background: #e3f2fd;
+      border: 1px solid #bbdefb;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+      color: #1565c0;
+    }
+
+    .explanation-box .title {
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Penalty warning box */
+    .penalty-warning {
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+      color: #856404;
+    }
+
+    .penalty-warning.no-penalty {
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      color: #155724;
+    }
+
+    .penalty-warning .title {
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Form grid for better layout */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <nav class="sidebar">
+    <h3>GCBD</h3>
+    <ul class="nav">
+      <li><a href="/employee_m"><i class="fas fa-users"></i> Employee Management</a></li>
+      <li><a href="/site_m"><i class="fas fa-building"></i> Site Management</a></li>
+      <li><a href="/admin_m"><i class="fas fa-user-shield"></i> Admin Management</a></li>
+      <li><a href="/labour_m" class="active"><i class="fas fa-hard-hat"></i> Labour Management</a></li>
+      <li><a href="/admin"><i class="fas fa-dashboard"></i> Dashboard</a></li>
+      <li><a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+    </ul>
+  </nav>
+  
+  <section class="main">
+    <div class="page-header">
+      <h1><i class="fas fa-id-card"></i> Labour Details</h1>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="page-content">
+      <!-- Worker Header -->
+      <div class="worker-header">
+        <h2><i class="fas fa-user"></i> {{ labour.name }} (ID: {{ labour.labour_id }})</h2>
+      </div>
+
+      <!-- Month Selector -->
+      <div class="month-selector">
+        <label for="month-select"><i class="fas fa-calendar"></i> Select Month:</label>
+        <input type="month" 
+               id="month-select" 
+               value="{{ selected_month }}"
+               onchange="changeMonth(this.value)">
+        <span style="color: #666; font-size: 0.9rem;">{{ attendance_stats.month_year }}</span>
+      </div>
+
+     
+
+      <!-- Information Cards Grid -->
+      <div class="cards-grid">
+        <!-- Present Days Card -->
+        <div class="info-card present">
+          <div class="icon">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <div class="count">{{ attendance_stats.present_days }}/{{ attendance_stats.total_countable_days }}</div>
+          <div class="label">Days Present</div>
+          <div class="percentage">{{ attendance_stats.present_percentage }}%</div>
+        </div>
+        
+        <!-- Absent Days Card -->
+        <div class="info-card absent">
+          <div class="icon">
+            <i class="fas fa-times-circle"></i>
+          </div>
+          <div class="count">{{ attendance_stats.absent_days }}/{{ attendance_stats.total_countable_days }}</div>
+          <div class="label">Days Absent</div>
+          <div class="percentage">{{ attendance_stats.absent_percentage }}%</div>
+        </div>
+
+        <!-- Work Amount (Before Penalty) -->
+        <div class="info-card work-amount">
+          <div class="icon">
+            <i class="fas fa-coins"></i>
+          </div>
+          <div class="count">{{ attendance_stats.total_work_amount }} AED</div>
+          <div class="label">Work Amount</div>
+          <div class="percentage">Before deductions</div>
+        </div>
+
+        <!-- Insurance Deduction -->
+        {% if not attendance_stats.is_future_month %}
+        <div class="info-card insurance">
+          <div class="icon">
+            <i class="fas fa-shield-alt"></i>
+          </div>
+          <div class="count">-{{ attendance_stats.insurance_amount }} AED</div>
+          <div class="label">Insurance Deduction</div>
+          <div class="percentage">Monthly fixed</div>
+        </div>
+        {% endif %}
+
+        <!-- Penalty Deduction -->
+        {% if not attendance_stats.is_future_month %}
+        <div class="info-card penalty">
+          <div class="icon">
+            <i class="fas fa-minus-circle"></i>
+          </div>
+          <div class="count">-{{ attendance_stats.total_penalty }} AED</div>
+          <div class="label">Penalty Deduction</div>
+          <div class="percentage">{{ attendance_stats.penalty_days }} excess days</div>
+        </div>
+        {% endif %}
+
+        <!-- Advance Payment Card -->
+        <div class="info-card advance-payment">
+          <div class="icon">
+            <i class="fas fa-hand-holding-usd"></i>
+          </div>
+          <div class="count">{{ labour.advance_payment or 0 }} AED</div>
+          <div class="label">Advance Payment</div>
+          <div class="percentage">Given to labour</div>
+        </div>
+
+        <!-- Total Money Payable (After All Deductions) -->
+        <div class="info-card total-money-payable">
+          <div class="icon">
+            <i class="fas fa-wallet"></i>
+          </div>
+          <div class="count">{{ total_money_payable }} AED</div>
+          <div class="label">Final Payable Amount</div>
+          <div class="percentage">After all deductions</div>
+        </div>
+
+        <!-- Total Visa Cost Card -->
+        <div class="info-card visa-cost">
+          <div class="icon">
+            <i class="fas fa-file-invoice-dollar"></i>
+          </div>
+          <div class="count">{{ labour.visa_cost }} AED</div>
+          <div class="label">Total Visa Cost</div>
+        </div>
+
+        <!-- Amount Received Card -->
+        <div class="info-card visa-paid">
+          <div class="icon">
+            <i class="fas fa-money-check-alt"></i>
+          </div>
+          <div class="count">{{ labour.visa_paid }} AED</div>
+          <div class="label">Amount Received</div>
+        </div>
+
+        <!-- Pending Amount Card -->
+        <div class="info-card visa-pending">
+          <div class="icon">
+            <i class="fas fa-hourglass-half"></i>
+          </div>
+          <div class="count">{{ labour.pending_visa_amount() }} AED</div>
+          <div class="label">Pending Amount</div>
+        </div>
+      </div>
+
+      <!-- Additional Info -->
+      <div class="additional-info">
+        {% if attendance_stats.is_future_month %}
+          <i class="fas fa-info-circle"></i> 
+          Future month - No attendance data available
+        {% elif attendance_stats.is_current_month %}
+          <i class="fas fa-info-circle"></i> 
+          Days with work: {{ attendance_stats.days_with_entries }} | 
+          Total work entries: {{ attendance_stats.total_entries }} |
+          Days without entries (counted as absent): {{ attendance_stats.days_without_entries }} |
+          Counted up to today ({{ attendance_stats.total_countable_days }}/{{ attendance_stats.days_in_month }} days) |
+          Deductions: 30 AED insurance + 25 AED per day after 2 absent days + advance adjustment
+        {% else %}
+          <i class="fas fa-info-circle"></i> 
+          Days with work: {{ attendance_stats.days_with_entries }} | 
+          Total work entries: {{ attendance_stats.total_entries }} |
+          Days without entries (counted as absent): {{ attendance_stats.days_without_entries }} |
+          Total days: {{ attendance_stats.total_countable_days }} |
+          Deductions: 30 AED insurance + 25 AED per day after 2 absent days + advance adjustment
+        {% endif %}
+      </div>
+
+      <!-- Payment Forms Grid -->
+      <div class="form-grid">
+        <!-- Visa Payment Form -->
+        <div class="form-container">
+          <h3><i class="fas fa-money-bill-wave"></i> Add New Visa Payment</h3>
+          <form method="POST">
+            <label for="additional_payment">Amount:</label>
+            <input type="number" step="0.01" name="additional_payment" required placeholder="Enter amount in AED">
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-plus-circle"></i> Add Payment
+            </button>
+          </form>
+        </div>
+
+        <!-- Advance Payment Form -->
+        <div class="form-container">
+          <h3><i class="fas fa-hand-holding-usd"></i> Add Advance Payment</h3>
+          <form method="POST">
+            <label for="advance_amount">Amount:</label>
+            <input type="number" step="0.01" name="advance_amount" required placeholder="Enter advance amount in AED">
+            <button type="submit" class="btn btn-success">
+              <i class="fas fa-plus-circle"></i> Add Advance
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Back Button -->
+      <div style="margin-top: 1rem;">
+        <a href="{{ url_for('labour.labour_m') }}" class="btn btn-secondary">
+          <i class="fas fa-arrow-left"></i> Back to Labour List
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    function changeMonth(selectedMonth) {
+      if (selectedMonth) {
+        // Get current URL and update the month parameter
+        const url = new URL(window.location);
+        url.searchParams.set('month', selectedMonth);
+        window.location.href = url.toString();
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Management</title>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:400,500&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+   <link rel="stylesheet" href="{{ url_for('static', filename='css/employee_m.css') }}">   
+
+</head>
+<body>
+  <nav class="sidebar">
+    <h3>GCBD</h3>
+    <ul class="nav">
+      <li><a href="/employee_m" class="active"><i class="fas fa-users"></i> Employee Management</a></li>
+      <li><a href="/site_m"><i class="fas fa-building"></i> Site Management</a></li>
+      <li><a href="/admin_m"><i class="fas fa-user-shield"></i> Admin Management</a></li>
+      <li><a href="/labour_m"><i class="fas fa-hard-hat"></i> Labour Management</a></li>
+      <li><a href="/admin"><i class="fas fa-dashboard"></i> Dashboard</a></li>
+      <li><a href="/logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+    </ul>
+  </nav>
+
+  <section class="main">
+    <div class="header">
+      <h1><i class="fas fa-users"></i> Employee Management</h1>
+      <button class="btn btn-primary" onclick="openAddModal()">
+        <i class="fas fa-plus"></i> Add Employee
+      </button>
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ 'danger' if category == 'error' else category }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- Statistics -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-number" id="totalEmployees">{{ employees|length }}</div>
+        <div class="stat-label">Total Employees</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="activeEmployees">
+          {{ employees|selectattr('is_active')|list|length }}
+        </div>
+        <div class="stat-label">Active Employees</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="inactiveEmployees">
+          {{ employees|rejectattr('is_active')|list|length }}
+        </div>
+        <div class="stat-label">Inactive Employees</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="totalSites">{{ sites|length }}</div>
+        <div class="stat-label">Total Sites</div>
+      </div>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="search-filter">
+      <input type="text" class="form-control" id="searchEmployee" placeholder="Search employees...">
+      <select class="form-control" id="filterSite">
+        <option value="">All Sites</option>
+        {% for site in sites %}
+          <option value="{{ site.id }}">{{ site.name }}</option>
+        {% endfor %}
+      </select>
+      <select class="form-control" id="filterStatus">
+        <option value="">All Status</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+      <button class="btn btn-primary" onclick="clearFilters()">
+        <i class="fas fa-times"></i> Clear Filters
+      </button>
+    </div>
+
+    <!-- Employees Table -->
+    <div class="card">
+      <div class="card-header">
+        <h3 style="margin: 0;"><i class="fas fa-list"></i> Employee List</h3>
+      </div>
+      <div class="card-body">
+        <div class="table-container">
+          <table class="table" id="employeeTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Site</th>
+                <th>Location</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for employee in employees %}
+                <tr data-site-id="{{ employee.site_id }}" data-status="{{ 'active' if employee.is_active else 'inactive' }}">
+                  <td>{{ employee.id }}</td>
+                  <td>{{ employee.username }}</td>
+                  <td>{{ employee.site.name }}</td>
+                  <td>{{ employee.site.location }}</td>
+                  <td>
+                    {% if employee.is_active %}
+                      <span class="badge badge-success">Active</span>
+                    {% else %}
+                      <span class="badge badge-danger">Inactive</span>
+                    {% endif %}
+                  </td>
+                  <td>{{ employee.created_at.strftime('%Y-%m-%d') if employee.created_at else 'N/A' }}</td>
+                  <td>
+                    <button class="btn btn-warning btn-sm" onclick="editEmployee({{ employee.id }}, '{{ employee.username }}', {{ employee.site_id }})">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn {% if employee.is_active %}btn-warning{% else %}btn-success{% endif %} btn-sm" 
+                            onclick="toggleEmployeeStatus({{ employee.id }}, '{{ employee.username }}', {{ employee.is_active|lower }})">
+                      <i class="fas fa-{% if employee.is_active %}pause{% else %}play{% endif %}"></i>
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteEmployee({{ employee.id }}, '{{ employee.username }}')">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          
+          {% if not employees %}
+            <div style="text-align: center; padding: 2rem; color: #666;">
+              <i class="fas fa-users" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.3;"></i>
+              <p>No employees found. Add your first employee to get started.</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Add/Edit Employee Modal -->
+  <div id="employeeModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalTitle">Add Employee</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <form id="employeeForm" method="POST">
+        <div class="modal-body">
+          <input type="hidden" name="action" id="formAction" value="add">
+          <input type="hidden" name="employee_id" id="employeeId">
+          
+          <div class="form-group">
+            <label class="form-label">Username *</label>
+            <input type="text" class="form-control" name="username" id="username" required>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Password <span id="passwordNote">*</span></label>
+            <input type="password" class="form-control" name="password" id="password">
+            <small style="color: #666; font-size: 0.8rem;">Minimum 6 characters</small>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Site *</label>
+            <select class="form-control" name="site_id" id="siteId" required>
+              <option value="">Select Site</option>
+              {% for site in sites %}
+                <option value="{{ site.id }}">{{ site.name }} - {{ site.location }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="submitBtn">Add Employee</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="deleteModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Confirm Delete</h3>
+        <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to delete employee <strong id="deleteEmployeeName"></strong>?</p>
+        <p style="color: var(--danger); font-size: 0.9rem;">This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn" onclick="closeDeleteModal()">Cancel</button>
+        <form method="POST" action="/employee_m/delete" style="display: inline;">
+          <input type="hidden" name="employee_id" id="deleteEmployeeId">
+          <button type="submit" class="btn btn-danger">Delete Employee</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Modal Functions
+    function openAddModal() {
+      document.getElementById('modalTitle').textContent = 'Add Employee';
+      document.getElementById('formAction').value = 'add';
+      document.getElementById('employeeId').value = '';
+      document.getElementById('username').value = '';
+      document.getElementById('password').value = '';
+      document.getElementById('siteId').value = '';
+      document.getElementById('password').required = true;
+      document.getElementById('passwordNote').textContent = '*';
+      document.getElementById('submitBtn').textContent = 'Add Employee';
+      document.getElementById('employeeModal').classList.add('show');
+    }
+
+    function editEmployee(id, username, siteId) {
+      document.getElementById('modalTitle').textContent = 'Edit Employee';
+      document.getElementById('formAction').value = 'edit';
+      document.getElementById('employeeId').value = id;
+      document.getElementById('username').value = username;
+      document.getElementById('password').value = '';
+      document.getElementById('siteId').value = siteId;
+      document.getElementById('password').required = false;
+      document.getElementById('passwordNote').textContent = '(leave blank to keep current)';
+      document.getElementById('submitBtn').textContent = 'Update Employee';
+      document.getElementById('employeeModal').classList.add('show');
+    }
+
+    function closeModal() {
+      document.getElementById('employeeModal').classList.remove('show');
+    }
+
+    function deleteEmployee(id, username) {
+      document.getElementById('deleteEmployeeId').value = id;
+      document.getElementById('deleteEmployeeName').textContent = username;
+      document.getElementById('deleteModal').classList.add('show');
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('deleteModal').classList.remove('show');
+    }
+
+    // Toggle Employee Status
+    async function toggleEmployeeStatus(id, username, isActive) {
+      const action = isActive ? 'deactivate' : 'activate';
+      if (!confirm(`Are you sure you want to ${action} employee "${username}"?`)) {
+        return;
+      }
+
+      try {
+        const formData = new FormData();
+        formData.append('employee_id', id);
+
+        const response = await fetch('/employee_m/toggle_status', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+          location.reload(); // Reload to update the display
+        } else {
+          alert('Error: ' + result.message);
+        }
+      } catch (error) {
+        alert('An error occurred while updating employee status.');
+        console.error('Error:', error);
+      }
+    }
+
+    // Search and Filter Functions
+    function filterTable() {
+      const searchTerm = document.getElementById('searchEmployee').value.toLowerCase();
+      const siteFilter = document.getElementById('filterSite').value;
+      const statusFilter = document.getElementById('filterStatus').value;
+      const rows = document.querySelectorAll('#employeeTable tbody tr');
+
+      rows.forEach(row => {
+        const username = row.cells[1].textContent.toLowerCase();
+        const siteName = row.cells[2].textContent.toLowerCase();
+        const location = row.cells[3].textContent.toLowerCase();
+        const siteId = row.getAttribute('data-site-id');
+        const status = row.getAttribute('data-status');
+
+        const matchesSearch = username.includes(searchTerm) || 
+                            siteName.includes(searchTerm) || 
+                            location.includes(searchTerm);
+        const matchesSite = !siteFilter || siteId === siteFilter;
+        const matchesStatus = !statusFilter || status === statusFilter;
+
+        if (matchesSearch && matchesSite && matchesStatus) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    }
+
+    function clearFilters() {
+      document.getElementById('searchEmployee').value = '';
+      document.getElementById('filterSite').value = '';
+      document.getElementById('filterStatus').value = '';
+      filterTable();
+    }
+
+    // Event Listeners
+    document.getElementById('searchEmployee').addEventListener('input', filterTable);
+    document.getElementById('filterSite').addEventListener('change', filterTable);
+    document.getElementById('filterStatus').addEventListener('change', filterTable);
+
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+      const employeeModal = document.getElementById('employeeModal');
+      const deleteModal = document.getElementById('deleteModal');
+      
+      if (event.target === employeeModal) {
+        closeModal();
+      }
+      if (event.target === deleteModal) {
+        closeDeleteModal();
+      }
+    }
+
+    // Form validation
+    document.getElementById('employeeForm').addEventListener('submit', function(e) {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const siteId = document.getElementById('siteId').value;
+      const action = document.getElementById('formAction').value;
+
+      if (!username || !siteId) {
+        e.preventDefault();
+        alert('Please fill in all required fields.');
+        return;
+      }
+
+      if (action === 'add' && (!password || password.length < 6)) {
+        e.preventDefault();
+        alert('Password is required and must be at least 6 characters long.');
+        return;
+      }
+
+      if (password && password.length < 6) {
+        e.preventDefault();
+        alert('Password must be at least 6 characters long.');
+        return;
+      }
+    });
+
+    // Auto-hide alerts after 5 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+      const alerts = document.querySelectorAll('.alert');
+      alerts.forEach(alert => {
+        setTimeout(() => {
+          alert.style.opacity = '0';
+          setTimeout(() => {
+            alert.remove();
+          }, 300);
+        }, 5000);
+      });
+    });
+  </script>
+</body>
+</html>
