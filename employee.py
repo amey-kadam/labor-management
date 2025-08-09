@@ -190,38 +190,85 @@ def entry():
 
     # ------------------------ POST  ------------------------
     if request.method == 'POST':
-        labour_code = request.form.get('labour_id')            
-        labour = Labour.query.filter_by(labour_id=labour_code).first()
-
-        if not labour:
-            flash('Labour ID not found.', 'error')
+        action = request.form.get('action', 'add')
+        
+        if action == 'edit':
+            # Handle edit entry
+            entry_id = request.form.get('entry_id')
+            if not entry_id:
+                flash('Entry ID is required for editing.', 'error')
+                return redirect(url_for('employee.entry'))
+            
+            try:
+                entry = LabourEntry.query.get_or_404(entry_id)
+                
+                # Verify that this entry belongs to the current employee's site
+                if entry.site_id != employee.site_id:
+                    flash('You can only edit entries from your site.', 'error')
+                    return redirect(url_for('employee.entry'))
+                
+                # Get labour by labour_id string
+                labour_code = request.form.get('labour_id')
+                labour = Labour.query.filter_by(labour_id=labour_code).first()
+                if not labour:
+                    flash('Labour ID not found.', 'error')
+                    return redirect(url_for('employee.entry'))
+                
+                # Update entry fields
+                entry.labour_id = labour.id
+                entry.activity = request.form.get('activity')
+                entry.status = request.form.get('status')
+                entry.unit = request.form.get('unit')
+                entry.rate_type = request.form.get('rate_type')
+                entry.rate = float(request.form.get('rate') or 0)
+                entry.total_hours = float(request.form.get('total_hours') or 0) or None
+                entry.qty = float(request.form.get('qty') or 0) or None
+                entry.amount = float(request.form.get('amount') or 0)
+                
+                db.session.commit()
+                flash('Labour entry updated successfully!', 'success')
+                
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.exception(e)
+                flash('Error updating labour entry.', 'danger')
+            
             return redirect(url_for('employee.entry'))
+        
+        else:
+            # Handle add entry (existing code)
+            labour_code = request.form.get('labour_id')            
+            labour = Labour.query.filter_by(labour_id=labour_code).first()
 
-        # Build new entry
-        new_entry = LabourEntry(
-            labour_id=labour.id,
-            employee_id=employee.id,
-            site_id=employee.site_id,
-            activity=request.form.get('activity'),
-            status=request.form.get('status'),
-            unit=request.form.get('unit'),
-            rate_type=request.form.get('rate_type'),
-            rate=float(request.form.get('rate') or 0),
-            total_hours=float(request.form.get('total_hours') or 0) or None,
-            qty=float(request.form.get('qty') or 0) or None,
-            amount=float(request.form.get('amount') or 0)
-        )
+            if not labour:
+                flash('Labour ID not found.', 'error')
+                return redirect(url_for('employee.entry'))
 
-        try:
-            db.session.add(new_entry)
-            db.session.commit()
-            flash('Labour entry recorded successfully!', 'success')
-        except Exception as e:
-            db.session.rollback()
-            current_app.logger.exception(e)
-            flash('Error saving labour entry.', 'danger')
+            # Build new entry
+            new_entry = LabourEntry(
+                labour_id=labour.id,
+                employee_id=employee.id,
+                site_id=employee.site_id,
+                activity=request.form.get('activity'),
+                status=request.form.get('status'),
+                unit=request.form.get('unit'),
+                rate_type=request.form.get('rate_type'),
+                rate=float(request.form.get('rate') or 0),
+                total_hours=float(request.form.get('total_hours') or 0) or None,
+                qty=float(request.form.get('qty') or 0) or None,
+                amount=float(request.form.get('amount') or 0)
+            )
 
-        return redirect(url_for('employee.entry'))        # PRG pattern
+            try:
+                db.session.add(new_entry)
+                db.session.commit()
+                flash('Labour entry recorded successfully!', 'success')
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.exception(e)
+                flash('Error saving labour entry.', 'danger')
+
+            return redirect(url_for('employee.entry'))        # PRG pattern
 
     # ------------------------ GET  ------------------------
     today = date.today()
@@ -240,6 +287,76 @@ def entry():
         labours=active_labours,
         labour_entries=today_entries          
     )
+
+@employee_bp.route('/entry/delete/<int:entry_id>', methods=['POST'])
+def delete_entry(entry_id):
+    # Only employees can use this view
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Not logged in'})
+        
+    if session.get('user_type') != 'employee':
+        return jsonify({'success': False, 'message': 'Access denied'})
+
+    employee = Employee.query.get_or_404(session['user_id'])
+    
+    try:
+        entry = LabourEntry.query.get_or_404(entry_id)
+        
+        # Verify that this entry belongs to the current employee's site
+        if entry.site_id != employee.site_id:
+            return jsonify({'success': False, 'message': 'You can only delete entries from your site'})
+        
+        # Store entry info for flash message
+        labour_name = entry.labour.name
+        activity = entry.activity
+        
+        db.session.delete(entry)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Entry for {labour_name} ({activity}) deleted successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.exception(e)
+        return jsonify({'success': False, 'message': 'Error deleting entry'})
+
+@employee_bp.route('/api/entry/<int:entry_id>')
+def get_entry(entry_id):
+    # Only employees can use this API
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+        
+    if session.get('user_type') != 'employee':
+        return jsonify({'error': 'Access denied'}), 403
+
+    employee = Employee.query.get_or_404(session['user_id'])
+    
+    try:
+        entry = LabourEntry.query.get_or_404(entry_id)
+        
+        # Verify that this entry belongs to the current employee's site
+        if entry.site_id != employee.site_id:
+            return jsonify({'error': 'Access denied'}), 403
+        
+        return jsonify({
+            'id': entry.id,
+            'labour_id': entry.labour.labour_id,
+            'activity': entry.activity,
+            'status': entry.status,
+            'unit': entry.unit,
+            'rate_type': entry.rate_type,
+            'rate': entry.rate,
+            'total_hours': entry.total_hours,
+            'qty': entry.qty,
+            'amount': entry.amount
+        })
+        
+    except Exception as e:
+        current_app.logger.exception(e)
+        return jsonify({'error': 'Entry not found'}), 404
 
 # API endpoint to get employee details
 @employee_bp.route('/api/employee/<int:employee_id>')
